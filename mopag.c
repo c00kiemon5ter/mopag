@@ -17,16 +17,17 @@
 #define URBG "#900000"
 
 typedef struct {
-    int nwins;
-    int mode;
-    int urgent;
+    unsigned int nwins;
+    unsigned int mode;
+    unsigned int urgent;
 } DeskInfo;
 
 enum { BORED, ERROR, RERENDER };
 
-static void initcolors();
+static void setup();
 static int parse();
 static void render();
+static void cleanup();
 
 static Display *dis;
 static int screen;
@@ -34,24 +35,49 @@ static Window root, w;
 static Pixmap p;
 static GC gc;
 static long fg, bg, urfg, urbg;
-static DeskInfo *di = NULL, *di_temp = NULL;
-static int cur_desk = -1, cur_desk_temp = -1;
-static int ndesks = 0;
+static DeskInfo *di = NULL;
+static unsigned int cur_desk;
+static unsigned int ndesks = 0;
 
-void initcolors()
+void setup()
 {
+    assert((dis = XOpenDisplay(NULL)));
+    screen = DefaultScreen(dis);
+    root = RootWindow(dis, screen);
+
     long *col_vars[] = { &fg, &bg, &urfg, &urbg, NULL };
     const char *col_strs[] = { FG, BG, URFG, URBG, NULL };
     XColor c;
-
     for (unsigned int i = 0; col_vars[i]; ++i) {
         assert(XAllocNamedColor(dis, DefaultColormap(dis, screen), col_strs[i], &c, &c));
         *col_vars[i] = c.pixel;
     }
+
+    XSetWindowAttributes wa;
+    wa.background_pixel = bg;
+    wa.override_redirect = 1;
+    wa.event_mask = ExposureMask;
+    w = XCreateWindow(dis, root,
+            0, DisplayHeight(dis, screen) - HEIGHT,
+            DisplayWidth(dis, screen), HEIGHT,
+            1, CopyFromParent,
+            InputOutput, CopyFromParent, 
+            CWBackPixel | CWOverrideRedirect | CWEventMask, &wa);
+    XMapWindow(dis, w);
+    XSetWindowBorderWidth(dis, w, 0);
+
+    XGCValues gcv;
+    gcv.graphics_exposures = 0; //otherwise get NoExpose on XCopyArea
+    gc = XCreateGC(dis, root, GCGraphicsExposures, &gcv);
+
+    p = XCreatePixmap(dis, w, 
+            DisplayWidth(dis, screen), HEIGHT, DefaultDepth(dis,screen));
 }
 
 int parse()
 {
+    static DeskInfo *di_temp;
+    static unsigned int cur_desk_temp;
     char buf[1024];
     if (fgets(buf, sizeof(buf), stdin) == NULL) {
         fprintf(stderr, "received no characters, exiting..\n");
@@ -60,7 +86,7 @@ int parse()
 
     int rerender = 0;
     
-    if (cur_desk == -1) {
+    if (!di) {
         char *s;
         assert(s = strrchr(buf, ' '));
         ndesks = atoi(s) + 1;
@@ -72,7 +98,8 @@ int parse()
     char *pos = buf;
     for (unsigned int i = 0; i < ndesks; ++i)
     {
-        int offset, is_cur, d;
+        unsigned int is_cur, d;
+        int offset;
         int res = sscanf(pos, "%u:%u:%u:%u:%u%n", &d, &di_temp[i].nwins,
                 &di_temp[i].mode, &is_cur, &di_temp[i].urgent, &offset);
         if (res < 5 || d != i) { //%n doesn't count
@@ -92,6 +119,15 @@ int parse()
 
         pos += offset; //okay if goes off end.
     }
+
+    if (rerender) {
+        cur_desk = cur_desk_temp;
+        DeskInfo *t = di;
+        di = di_temp;
+        di_temp = t;
+        return RERENDER;
+    } else
+        return BORED;
 
     return rerender ? RERENDER : BORED;
 }
@@ -120,7 +156,7 @@ void render()
         if (i == cur_desk)
             XSetForeground(dis, gc, bg);
 
-        int nticks = (di[i].nwins > width / 3) ? width / 3 : di[i].nwins;
+        unsigned int nticks = (di[i].nwins > width / 3) ? width / 3 : di[i].nwins;
         for (unsigned int j = 0; j + 1 < nticks; ++j) {
             XDrawLine(dis, p, gc, start + width * (j + 1) / nticks, 0,
                     start + width * (j + 1) / nticks, HEIGHT);
@@ -128,45 +164,31 @@ void render()
     }
 }
 
-int main(int argc, char *argv[])
+void cleanup()
 {
-    assert((dis = XOpenDisplay(NULL)));
-    screen = DefaultScreen(dis);
-    root = RootWindow(dis, screen);
+    //di not free()'d for solidarity with di_temp
+    XFreeGC(dis, gc);
+    XFreePixmap(dis, p);
+    XDestroyWindow(dis, w);
+    XCloseDisplay(dis);
+}
 
-    initcolors();
-
-    XSetWindowAttributes wa;
-    wa.background_pixel = bg;
-    wa.override_redirect = 1;
-    wa.event_mask = ExposureMask;
-    w = XCreateWindow(dis, root,
-            0, DisplayHeight(dis, screen) - HEIGHT,
-            DisplayWidth(dis, screen), HEIGHT,
-            1, CopyFromParent,
-            InputOutput, CopyFromParent, 
-            CWBackPixel | CWOverrideRedirect | CWEventMask, &wa);
-    XMapWindow(dis, w);
-    XSetWindowBorderWidth(dis, w, 0);
-    gc = XCreateGC(dis, root, 0, NULL);
-    p = XCreatePixmap(dis, w, 
-            DisplayWidth(dis, screen), HEIGHT, DefaultDepth(dis,screen));
+int main()
+{
+    setup();
 
     int xfd = ConnectionNumber(dis);
+    int nfds = 1 + ((xfd > STDIN_FILENO) ? xfd : STDIN_FILENO);
     while (1) {
         int redraw = 0;
         fd_set fds;
         FD_ZERO(&fds);
         FD_SET(xfd, &fds);
         FD_SET(STDIN_FILENO, &fds);
-        select(2, &fds, NULL, NULL, NULL);
+        select(nfds, &fds, NULL, NULL, NULL);
 
         if (FD_ISSET(STDIN_FILENO, &fds)) {
             if (parse() == RERENDER) {
-                cur_desk = cur_desk_temp;
-                DeskInfo *t = di;
-                di = di_temp;
-                di_temp = t;
                 render();
                 redraw = 1;
             }
@@ -176,10 +198,11 @@ int main(int argc, char *argv[])
             XEvent xev;
             while (XPending(dis)) {
                 XNextEvent(dis, &xev);
-                if (xev.type != Expose)
-                    fprintf(stderr, "weird, not an expose event..\n");
+                if (xev.type == Expose)
+                    redraw = 1;
+                else
+                    fprintf(stderr, "weird event of type %u\n", xev.type);
             }
-            redraw = 1;
         }
 
         if (redraw)
@@ -188,8 +211,5 @@ int main(int argc, char *argv[])
         XFlush(dis);
     }
 
-    XFreeGC(dis, gc);
-    XFreePixmap(dis, p);
-    XDestroyWindow(dis, w);
-    XCloseDisplay(dis);
+    cleanup();
 }
