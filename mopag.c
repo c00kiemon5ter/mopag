@@ -1,4 +1,4 @@
-/** 
+/**
  * Matus Telgarsky <chisel@gmail.com>
  */
 #include <stdio.h>
@@ -9,6 +9,7 @@
 #include <sys/select.h>
 #include <X11/Xlib.h>
 
+#define TOP True
 #define HEIGHT 4
 #define FATTICK_W 6
 #define BG "#404040"
@@ -58,10 +59,10 @@ void setup()
     wa.override_redirect = 1;
     wa.event_mask = ExposureMask;
     w = XCreateWindow(dis, root,
-            0, DisplayHeight(dis, screen) - HEIGHT,
+            0, TOP ? 0:DisplayHeight(dis, screen) - HEIGHT,
             DisplayWidth(dis, screen), HEIGHT,
             1, CopyFromParent,
-            InputOutput, CopyFromParent, 
+            InputOutput, CopyFromParent,
             CWBackPixel | CWOverrideRedirect | CWEventMask, &wa);
     XMapWindow(dis, w);
     XSetWindowBorderWidth(dis, w, 0);
@@ -70,7 +71,7 @@ void setup()
     gcv.graphics_exposures = 0; //otherwise get NoExpose on XCopyArea
     gc = XCreateGC(dis, root, GCGraphicsExposures, &gcv);
 
-    p = XCreatePixmap(dis, w, 
+    p = XCreatePixmap(dis, w,
             DisplayWidth(dis, screen), HEIGHT, DefaultDepth(dis,screen));
 }
 
@@ -85,7 +86,7 @@ int parse()
     }
 
     int rerender = 0;
-    
+
     if (!di) {
         char *s;
         assert(s = strrchr(buf, ' '));
