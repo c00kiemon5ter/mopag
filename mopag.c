@@ -40,8 +40,7 @@ static DeskInfo *di = NULL;
 static unsigned int cur_desk;
 static unsigned int ndesks = 0;
 
-void setup()
-{
+void setup() {
     assert((dis = XOpenDisplay(NULL)));
     screen = DefaultScreen(dis);
     root = RootWindow(dis, screen);
@@ -49,6 +48,7 @@ void setup()
     long *col_vars[] = { &fg, &bg, &urfg, &urbg, NULL };
     const char *col_strs[] = { FG, BG, URFG, URBG, NULL };
     XColor c;
+
     for (unsigned int i = 0; col_vars[i]; ++i) {
         assert(XAllocNamedColor(dis, DefaultColormap(dis, screen), col_strs[i], &c, &c));
         *col_vars[i] = c.pixel;
@@ -59,11 +59,11 @@ void setup()
     wa.override_redirect = 1;
     wa.event_mask = ExposureMask;
     w = XCreateWindow(dis, root,
-            0, TOP ? 0:DisplayHeight(dis, screen) - HEIGHT,
+            0, TOP ? 0 : DisplayHeight(dis, screen) - HEIGHT,
             DisplayWidth(dis, screen), HEIGHT,
-            1, CopyFromParent,
-            InputOutput, CopyFromParent,
+            1, CopyFromParent, InputOutput, CopyFromParent,
             CWBackPixel | CWOverrideRedirect | CWEventMask, &wa);
+
     XMapWindow(dis, w);
     XSetWindowBorderWidth(dis, w, 0);
 
@@ -71,12 +71,10 @@ void setup()
     gcv.graphics_exposures = 0; //otherwise get NoExpose on XCopyArea
     gc = XCreateGC(dis, root, GCGraphicsExposures, &gcv);
 
-    p = XCreatePixmap(dis, w,
-            DisplayWidth(dis, screen), HEIGHT, DefaultDepth(dis,screen));
+    p = XCreatePixmap(dis, w, DisplayWidth(dis, screen), HEIGHT, DefaultDepth(dis,screen));
 }
 
-int parse()
-{
+int parse() {
     static DeskInfo *di_temp;
     static unsigned int cur_desk_temp;
     char buf[1024];
@@ -97,25 +95,23 @@ int parse()
     }
 
     char *pos = buf;
-    for (unsigned int i = 0; i < ndesks; ++i)
-    {
+    for (unsigned int i = 0; i < ndesks; ++i) {
         unsigned int is_cur, d;
         int offset;
         int res = sscanf(pos, "%u:%u:%u:%u:%u%n", &d, &di_temp[i].nwins,
                 &di_temp[i].mode, &is_cur, &di_temp[i].urgent, &offset);
+
         if (res < 5 || d != i) { //%n doesn't count
             fprintf(stderr, "Ignoring malformed input.\n");
             return ERROR;
         }
 
-        if (is_cur)
-            cur_desk_temp = i;
+        if (is_cur) cur_desk_temp = i;
 
-        if (!rerender &&
-                (di_temp[i].nwins != di[i].nwins
-                 || di_temp[i].mode != di[i].mode
-                 || di_temp[i].urgent != di[i].urgent
-                 || (is_cur != (cur_desk == i)) ) )
+        if (!rerender && (di_temp[i].nwins != di[i].nwins
+                       || di_temp[i].mode != di[i].mode
+                       || di_temp[i].urgent != di[i].urgent
+                       || (is_cur != (cur_desk == i))))
             rerender = 1;
 
         pos += offset; //okay if goes off end.
@@ -127,19 +123,16 @@ int parse()
         di = di_temp;
         di_temp = t;
         return RERENDER;
-    } else
-        return BORED;
+    } else return BORED;
 
     return rerender ? RERENDER : BORED;
 }
 
-void render()
-{
+void render() {
     XSetForeground(dis, gc, bg);
     XFillRectangle(dis, p, gc, 0, 0, DisplayWidth(dis, screen), HEIGHT);
 
-    for (unsigned int i = 0; i < ndesks; ++i)
-    {
+    for (unsigned int i = 0; i < ndesks; ++i) {
         unsigned int start = i * DisplayWidth(dis, screen) / ndesks;
         unsigned int end = (i + 1) * DisplayWidth(dis, screen) / ndesks;
         unsigned int width = end - start;
@@ -151,22 +144,21 @@ void render()
 
         XSetForeground(dis, gc, fg);
         XFillRectangle(dis, p, gc, start - FATTICK_W / 2, 0, FATTICK_W, HEIGHT);
+
         if (i == ndesks - 1)
             XFillRectangle(dis, p, gc, end - FATTICK_W / 2, 0, FATTICK_W, HEIGHT);
 
-        if (i == cur_desk)
-            XSetForeground(dis, gc, bg);
+        if (i == cur_desk) XSetForeground(dis, gc, bg);
 
         unsigned int nticks = (di[i].nwins > width / 3) ? width / 3 : di[i].nwins;
         for (unsigned int j = 0; j + 1 < nticks; ++j) {
             XDrawLine(dis, p, gc, start + width * (j + 1) / nticks, 0,
-                    start + width * (j + 1) / nticks, HEIGHT);
+                            start + width * (j + 1) / nticks, HEIGHT);
         }
     }
 }
 
-void cleanup()
-{
+void cleanup() {
     //di not free()'d for solidarity with di_temp
     XFreeGC(dis, gc);
     XFreePixmap(dis, p);
@@ -174,10 +166,8 @@ void cleanup()
     XCloseDisplay(dis);
 }
 
-int main()
-{
+int main() {
     setup();
-
     int xfd = ConnectionNumber(dis);
     int nfds = 1 + ((xfd > STDIN_FILENO) ? xfd : STDIN_FILENO);
     while (1) {
@@ -194,23 +184,19 @@ int main()
                 redraw = 1;
             }
         }
-
         if (FD_ISSET(xfd, &fds)) {
             XEvent xev;
             while (XPending(dis)) {
                 XNextEvent(dis, &xev);
-                if (xev.type == Expose)
-                    redraw = 1;
-                else
-                    fprintf(stderr, "weird event of type %u\n", xev.type);
+                if (xev.type == Expose) redraw = 1;
+                else fprintf(stderr, "weird event of type %u\n", xev.type);
             }
         }
-
         if (redraw)
             XCopyArea(dis, p, w, gc, 0, 0, DisplayWidth(dis, screen), HEIGHT, 0, 0);
 
         XFlush(dis);
     }
-
     cleanup();
 }
+
