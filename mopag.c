@@ -171,12 +171,14 @@ int main() {
     setup();
     int xfd = ConnectionNumber(dis);
     int nfds = 1 + ((xfd > STDIN_FILENO) ? xfd : STDIN_FILENO);
+    int redraw = 0;
+
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(xfd, &fds);
+    FD_SET(STDIN_FILENO, &fds);
+
     while (1) {
-        int redraw = 0;
-        fd_set fds;
-        FD_ZERO(&fds);
-        FD_SET(xfd, &fds);
-        FD_SET(STDIN_FILENO, &fds);
         select(nfds, &fds, NULL, NULL, NULL);
 
         if (FD_ISSET(STDIN_FILENO, &fds)) {
