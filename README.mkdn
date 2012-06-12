@@ -1,0 +1,57 @@
+
+mopag
+-----
+
+a small pager for [monsterwm][m].
+
+  [m]: https://github.com/c00kiemon5ter/monsterwm
+
+it visually displays
+the number of desktops
+and number of windows on each desktop
+in a thin bar.
+
+configuration
+-------------
+
+configuration is done through the source itself.
+
+edit `mopag.c` and define the prefered colors,
+for active/inactive desktops, urgent hints,
+size of bar and markers, and bar placement
+(top or bottom of the screen).
+
+installation
+------------
+
+    $ $EDITOR mopag.c
+    $ make
+    # make install
+
+run
+---
+
+on `.xinitrc` or whatever file is used to start `monsterwm` do:
+
+    monsterwm | mopag
+
+to use with other statusbars like `dzen` or [`some_sorta_bar`][ssb] you'll need a _fifo_.
+the statusbars will read info from the fifo, while the pager from monsterwm's output through `tee`.
+
+  [ssb]: https://github.com/moetunes/Some_sorta_bar
+
+    fifo="/tmp/monsterwm.fifo"
+    mkfifo -m 600 "$fifo"
+
+    while read ..
+        [..snip..] # see https://gist.github.com/1905427
+    done < "$fifo" | dzen &  # or some_sorta_bar
+
+    monsterwm | tree -a "$fifo" | mopag
+
+credits
+-------
+
+ * original author is Matus Telgarsky.
+ * minor changes by Ivan c00kiemon5ter Kanakarakis.
+
