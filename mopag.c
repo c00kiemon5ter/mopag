@@ -31,7 +31,7 @@ static void render();
 static void cleanup();
 
 static Display *dis;
-static int screen;
+static int screen, swidth, sheight;
 static Window root, w;
 static Pixmap p;
 static GC gc;
@@ -44,6 +44,8 @@ void setup() {
     assert((dis = XOpenDisplay(NULL)));
     screen = DefaultScreen(dis);
     root = RootWindow(dis, screen);
+    swidth  = DisplayWidth(dis, screen);
+    sheight = DisplayHeight(dis, screen);
 
     long *col_vars[] = { &fg, &bg, &urfg, &urbg, NULL };
     const char *col_strs[] = { FG, BG, URFG, URBG, NULL };
@@ -59,8 +61,7 @@ void setup() {
     wa.override_redirect = 1;
     wa.event_mask = ExposureMask;
     w = XCreateWindow(dis, root,
-            0, TOP ? 0 : DisplayHeight(dis, screen) - HEIGHT,
-            DisplayWidth(dis, screen), HEIGHT,
+            0, TOP ? 0 : sheight - HEIGHT, swidth, HEIGHT,
             1, CopyFromParent, InputOutput, CopyFromParent,
             CWBackPixel | CWOverrideRedirect | CWEventMask, &wa);
 
@@ -71,7 +72,7 @@ void setup() {
     gcv.graphics_exposures = 0; //otherwise get NoExpose on XCopyArea
     gc = XCreateGC(dis, root, GCGraphicsExposures, &gcv);
 
-    p = XCreatePixmap(dis, w, DisplayWidth(dis, screen), HEIGHT, DefaultDepth(dis,screen));
+    p = XCreatePixmap(dis, w, swidth, HEIGHT, DefaultDepth(dis,screen));
 }
 
 int parse() {
@@ -130,11 +131,11 @@ int parse() {
 
 void render() {
     XSetForeground(dis, gc, bg);
-    XFillRectangle(dis, p, gc, 0, 0, DisplayWidth(dis, screen), HEIGHT);
+    XFillRectangle(dis, p, gc, 0, 0, swidth, HEIGHT);
 
     for (unsigned int i = 0; i < ndesks; ++i) {
-        unsigned int start = i * DisplayWidth(dis, screen) / ndesks;
-        unsigned int end = (i + 1) * DisplayWidth(dis, screen) / ndesks;
+        unsigned int start = i * swidth / ndesks;
+        unsigned int end = (i + 1) * swidth / ndesks;
         unsigned int width = end - start;
 
         if (i == cur_desk || di[i].urgent) {
@@ -184,6 +185,7 @@ int main() {
                 redraw = 1;
             }
         }
+
         if (FD_ISSET(xfd, &fds)) {
             XEvent xev;
             while (XPending(dis)) {
@@ -192,8 +194,8 @@ int main() {
                 else fprintf(stderr, "weird event of type %u\n", xev.type);
             }
         }
-        if (redraw)
-            XCopyArea(dis, p, w, gc, 0, 0, DisplayWidth(dis, screen), HEIGHT, 0, 0);
+
+        if (redraw) XCopyArea(dis, p, w, gc, 0, 0, swidth, HEIGHT, 0, 0);
 
         XFlush(dis);
     }
