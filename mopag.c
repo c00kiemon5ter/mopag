@@ -193,6 +193,7 @@ int main() {
             while (XPending(dis)) {
                 XNextEvent(dis, &xev);
                 if (xev.type == Expose) redraw = 1;
+                else if (xev.type == DestroyNotify) break;
                 else fprintf(stderr, "weird event of type %u\n", xev.type);
             }
         }
