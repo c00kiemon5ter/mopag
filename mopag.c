@@ -79,7 +79,7 @@ int parse() {
     static DeskInfo *di_temp;
     static unsigned int cur_desk_temp;
     char buf[1024];
-    if (fgets(buf, sizeof(buf), stdin) == NULL) {
+    if (read(STDIN_FILENO, buf, sizeof(buf)) < 0) {
         fprintf(stderr, "received no characters, exiting..\n");
         exit(1);
     }
