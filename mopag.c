@@ -13,7 +13,8 @@
 
 #define HEIGHT      4
 #define FATTICK_W   6
-#define PLACEMENT   (HEIGHT)
+#define TOP         True        /* show on top or bottom of the screen */
+#define GAP         (0)         /* space above when on top. space below when on bottom */
 #define BG          "#004020"
 #define FG          "#90f0c0"
 #define URFG        "#f00000"
@@ -60,7 +61,7 @@ void setup()
 
     XSetWindowAttributes wa = { .background_pixel = bg, .override_redirect = 1, .event_mask = ExposureMask, };
     w = XCreateWindow(dis, root, 0,
-            (PLACEMENT >= 0) ? PLACEMENT : DisplayHeight(dis, screen) + PLACEMENT,
+            (TOP) ? GAP : DisplayHeight(dis, screen) - HEIGHT - GAP,
             scrwidth, HEIGHT, 1, CopyFromParent, InputOutput, CopyFromParent,
             CWBackPixel | CWOverrideRedirect | CWEventMask, &wa);
     XMapWindow(dis, w);
