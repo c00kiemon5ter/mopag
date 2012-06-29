@@ -11,16 +11,16 @@
 #include <sys/select.h>
 #include <X11/Xlib.h>
 
-#define HEIGHT      4
-#define FATTICK_W   6
+#define HEIGHT      8
+#define FATTICK_W   8
 #define TOP         True        /* show on top or bottom of the screen */
-#define GAP         (0)         /* space above when on top. space below when on bottom */
-#define BG          "#004020"
-#define FG          "#90f0c0"
-#define URFG        "#f00000"
-#define URBG        "#900000"
-#define WINFG       "#ffffff"
-#define WINBG       "#000000"
+#define GAP         (3)         /* space above when on top. space below when on bottom */
+#define BG          "#5f5f5f"
+#define FG          "#77bee0"
+#define URFG        "#ff8278"
+#define URBG        "#c5000b"
+#define WINFG       "#dddddd"
+#define WINBG       "#5f5f5f"
 
 typedef struct {
     unsigned int nwins;
